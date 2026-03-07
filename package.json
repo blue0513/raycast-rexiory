@@ -1,0 +1,73 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "raycast-rexiory",
+  "title": "Google Chrome RexiOry",
+  "description": "Search Google Chrome history and bookmarks",
+  "icon": "assets/icon.png",
+  "author": "blue0513",
+  "categories": [
+    "Web"
+  ],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "index",
+      "title": "Google Chrome RexiOry",
+      "description": "Search Google Chrome history and bookmarks",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "fallbackSearchEngine",
+      "type": "dropdown",
+      "title": "Fallback Search Engine",
+      "description": "Search engine to use when no results are found",
+      "required": false,
+      "default": "google",
+      "data": [
+        {
+          "title": "Google",
+          "value": "google"
+        },
+        {
+          "title": "DuckDuckGo",
+          "value": "duckduckgo"
+        },
+        {
+          "title": "Bing",
+          "value": "bing"
+        }
+      ]
+    },
+    {
+      "name": "maxHistoryResults",
+      "type": "textfield",
+      "title": "Max History Results",
+      "description": "Maximum number of history entries to load",
+      "required": false,
+      "default": "200"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.84.3",
+    "@raycast/utils": "^2.2.3",
+    "fuse.js": "^7.1.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/node": "20.8.10",
+    "@types/react": "^19.2.14",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "react": "^19.2.4",
+    "typescript": "^5.4.5"
+  },
+  "scripts": {
+    "build": "ray build -e dist",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "lint": "ray lint",
+    "prepublishOnly": "echo 'Use ray publish instead'"
+  }
+}
