@@ -23,12 +23,14 @@ const FUSE_OPTIONS = {
 };
 
 // Space-separated words are treated as AND: each word further narrows results
-function fuseSearch<T>(items: T[], query: string): T[] {
+// Uses a pre-built Fuse index for the first word to avoid rebuilding on every keystroke
+function fuseSearch<T>(fuse: Fuse<T>, items: T[], query: string): T[] {
   const words = query.trim().split(/\s+/).filter(Boolean);
-  let results = items;
-  for (const word of words) {
-    const fuse = new Fuse(results, FUSE_OPTIONS);
-    results = fuse.search(word).map((r) => r.item);
+  if (words.length === 0) return items;
+  let results = fuse.search(words[0]).map((r) => r.item);
+  for (const word of words.slice(1)) {
+    const f = new Fuse(results, FUSE_OPTIONS);
+    results = f.search(word).map((r) => r.item);
   }
   return results;
 }
@@ -134,15 +136,18 @@ export default function Command() {
     { keepPreviousData: true },
   );
 
+  const bookmarksFuse = useMemo(() => new Fuse(bookmarks, FUSE_OPTIONS), [bookmarks]);
+  const historyFuse = useMemo(() => new Fuse(history, FUSE_OPTIONS), [history]);
+
   const filteredBookmarks = useMemo<BookmarkEntry[]>(() => {
     if (!searchQuery.trim()) return bookmarks.slice(0, 100);
-    return fuseSearch(bookmarks, searchQuery);
-  }, [bookmarks, searchQuery]);
+    return fuseSearch(bookmarksFuse, bookmarks, searchQuery);
+  }, [bookmarksFuse, bookmarks, searchQuery]);
 
   const filteredHistory = useMemo<HistoryEntry[]>(() => {
     if (!searchQuery.trim()) return history.slice(0, 100);
-    return fuseSearch(history, searchQuery);
-  }, [history, searchQuery]);
+    return fuseSearch(historyFuse, history, searchQuery);
+  }, [historyFuse, history, searchQuery]);
 
   const isLoading = historyLoading || bookmarksLoading;
   const hasResults = filteredBookmarks.length > 0 || filteredHistory.length > 0;

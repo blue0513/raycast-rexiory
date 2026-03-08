@@ -34,8 +34,13 @@ function chromeTimeToDate(chromeTime: number): Date {
 export async function loadChromeHistory(limit = 200): Promise<HistoryEntry[]> {
   if (!fs.existsSync(CHROME_HISTORY_SOURCE)) return [];
 
-  // Copy the DB since Chrome locks it while running
-  fs.copyFileSync(CHROME_HISTORY_SOURCE, CHROME_HISTORY_COPY);
+  // Copy the DB since Chrome locks it while running (skip if copy is already up-to-date)
+  const sourceMtime = fs.statSync(CHROME_HISTORY_SOURCE).mtimeMs;
+  const copyExists = fs.existsSync(CHROME_HISTORY_COPY);
+  const copyMtime = copyExists ? fs.statSync(CHROME_HISTORY_COPY).mtimeMs : 0;
+  if (!copyExists || sourceMtime > copyMtime) {
+    fs.copyFileSync(CHROME_HISTORY_SOURCE, CHROME_HISTORY_COPY);
+  }
 
   const rows = await executeSQL<HistoryRow>(
     CHROME_HISTORY_COPY,
