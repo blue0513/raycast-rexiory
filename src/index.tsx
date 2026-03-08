@@ -1,4 +1,4 @@
-import { Action, ActionPanel, Color, getPreferenceValues, Icon, Image, List, open } from "@raycast/api";
+import { Action, ActionPanel, closeMainWindow, Color, getPreferenceValues, Icon, Image, List, open, popToRoot } from "@raycast/api";
 import { useCachedPromise } from "@raycast/utils";
 import Fuse from "fuse.js";
 import { useMemo, useState } from "react";
@@ -64,7 +64,9 @@ function favicon(url: string, fallback: Icon): Image.ImageLike {
   }
 }
 
-function openInChrome(url: string) {
+async function openInChrome(url: string) {
+  await closeMainWindow();
+  await popToRoot();
   open(url, CHROME_BUNDLE_ID);
 }
 
