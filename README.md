@@ -12,6 +12,27 @@ A [Raycast](https://raycast.com) extension that brings [RexiOry](https://github.
 - **Fallback search** — when no results match, search the web in Chrome without leaving Raycast
 - **Opens in Chrome** — results open in your existing Chrome window as a new tab
 
+## Installation
+
+1. Clone this repository:
+```bash
+git clone https://github.com/blue0513/raycast-rexiory.git
+cd raycast-rexiory
+```
+2. Install dependencies:
+```bash
+npm install
+```
+3. Build the extension:
+```bash
+npm run build
+```
+4. Open Raycast, search for **"Import Extension"**, and select the cloned directory
+
+> This manual step is required only once. Raycast will remember the extension across restarts.
+
+The extension is now available in Raycast as **RexiOry**.
+
 ## Requirements
 
 - macOS
@@ -19,9 +40,7 @@ A [Raycast](https://raycast.com) extension that brings [RexiOry](https://github.
 
 ## Usage
 
-Invoke **Google Chrome RexiOry** from Raycast and start typing.
-
-> Tip: type `google` in Raycast to find this extension alongside Google Chrome.
+Invoke **RexiOry** from Raycast and start typing.
 
 | Section | Content |
 |---|---|

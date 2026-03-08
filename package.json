@@ -1,9 +1,9 @@
 {
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "raycast-rexiory",
-  "title": "Google Chrome RexiOry",
+  "title": "RexiOry",
   "description": "Search Google Chrome history and bookmarks",
-  "icon": "assets/icon.png",
+  "icon": "icon.png",
   "author": "blue0513",
   "categories": [
     "Web"
@@ -12,7 +12,7 @@
   "commands": [
     {
       "name": "index",
-      "title": "Google Chrome RexiOry",
+      "title": "RexiOry",
       "description": "Search Google Chrome history and bookmarks",
       "mode": "view"
     }

@@ -26,6 +26,10 @@ Single Raycast command (`src/index.tsx`) that cross-searches Chrome history and 
 - Empty query → shows first 100 results of each type; with query → full fuzzy search
 - Fallback: when no results, `List.EmptyView` with action to search configured engine in Chrome
 
+**Icon:**
+- File must be at `assets/icon.png`
+- `package.json` must use `"icon": "icon.png"` (without `assets/` prefix — Raycast auto-prepends `assets/`)
+
 **Key constraints:**
 - Only `Default` Chrome profile is supported (no multi-profile)
 - Must use `@types/react@19` (not 18) — `@raycast/api` bundles React 19 internally
