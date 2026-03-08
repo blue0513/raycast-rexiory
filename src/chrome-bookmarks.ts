@@ -1,6 +1,6 @@
 import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
+
+import { chromeProfilePath } from "./chrome-profile";
 
 export interface BookmarkEntry {
   type: "bookmark";
@@ -9,11 +9,6 @@ export interface BookmarkEntry {
   title: string;
   folderPath: string;
 }
-
-const CHROME_BOOKMARKS_PATH = path.join(
-  os.homedir(),
-  "Library/Application Support/Google/Chrome/Default/Bookmarks",
-);
 
 interface RawBookmark {
   id: string;
@@ -27,7 +22,10 @@ interface BookmarksFile {
   roots: Record<string, RawBookmark>;
 }
 
-function flattenBookmarks(node: RawBookmark, folderPath: string): BookmarkEntry[] {
+function flattenBookmarks(
+  node: RawBookmark,
+  folderPath: string,
+): BookmarkEntry[] {
   const results: BookmarkEntry[] = [];
 
   if (node.type === "url" && node.url) {
@@ -41,7 +39,9 @@ function flattenBookmarks(node: RawBookmark, folderPath: string): BookmarkEntry[
   }
 
   if (node.children) {
-    const childPath = node.name ? `${folderPath}/${node.name}`.replace(/^\//, "") : folderPath;
+    const childPath = node.name
+      ? `${folderPath}/${node.name}`.replace(/^\//, "")
+      : folderPath;
     for (const child of node.children) {
       results.push(...flattenBookmarks(child, childPath));
     }
@@ -50,10 +50,11 @@ function flattenBookmarks(node: RawBookmark, folderPath: string): BookmarkEntry[
   return results;
 }
 
-export function loadChromeBookmarks(): BookmarkEntry[] {
-  if (!fs.existsSync(CHROME_BOOKMARKS_PATH)) return [];
+export function loadChromeBookmarks(profileDir: string): BookmarkEntry[] {
+  const bookmarksPath = chromeProfilePath(profileDir, "Bookmarks");
+  if (!fs.existsSync(bookmarksPath)) return [];
 
-  const content = fs.readFileSync(CHROME_BOOKMARKS_PATH, "utf-8");
+  const content = fs.readFileSync(bookmarksPath, "utf-8");
   const data: BookmarksFile = JSON.parse(content);
   const entries: BookmarkEntry[] = [];
 

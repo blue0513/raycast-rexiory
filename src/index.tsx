@@ -1,9 +1,21 @@
-import { Action, ActionPanel, closeMainWindow, Color, getPreferenceValues, Icon, Image, List, open, popToRoot } from "@raycast/api";
+import {
+  Action,
+  ActionPanel,
+  closeMainWindow,
+  Color,
+  getPreferenceValues,
+  Icon,
+  Image,
+  List,
+  open,
+  popToRoot,
+} from "@raycast/api";
 import { useCachedPromise } from "@raycast/utils";
 import Fuse from "fuse.js";
 import { useMemo, useState } from "react";
 import { BookmarkEntry, loadChromeBookmarks } from "./chrome-bookmarks";
 import { HistoryEntry, loadChromeHistory } from "./chrome-history";
+import { listChromeProfiles } from "./chrome-profile";
 
 interface Preferences {
   fallbackSearchEngine: "google" | "duckduckgo" | "bing";
@@ -44,7 +56,9 @@ function getFallbackUrl(query: string, engine: string): string {
 
 function formatDate(date: Date): string {
   const now = new Date();
-  const days = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+  const days = Math.floor(
+    (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24),
+  );
   if (days === 0) return "Today";
   if (days === 1) return "Yesterday";
   if (days < 7) return `${days} days ago`;
@@ -60,7 +74,10 @@ function truncate(text: string, max = 40): string {
 function favicon(url: string, fallback: Icon): Image.ImageLike {
   try {
     const hostname = new URL(url).hostname;
-    return { source: `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`, fallback };
+    return {
+      source: `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`,
+      fallback,
+    };
   } catch {
     return fallback;
   }
@@ -72,13 +89,35 @@ async function openInChrome(url: string) {
   open(url, CHROME_BUNDLE_ID);
 }
 
-function ItemActions({ url, title, searchQuery, engine }: { url: string; title: string; searchQuery: string; engine: string }) {
+function ItemActions({
+  url,
+  title,
+  searchQuery,
+  engine,
+}: {
+  url: string;
+  title: string;
+  searchQuery: string;
+  engine: string;
+}) {
   const label = engine.charAt(0).toUpperCase() + engine.slice(1);
   return (
     <ActionPanel>
-      <Action title="Open in Chrome" icon={Icon.Globe} onAction={() => openInChrome(url)} />
-      <Action.CopyToClipboard content={url} title="Copy URL" shortcut={{ modifiers: ["cmd"], key: "c" }} />
-      <Action.CopyToClipboard content={title} title="Copy Title" shortcut={{ modifiers: ["cmd", "shift"], key: "c" }} />
+      <Action
+        title="Open in Chrome"
+        icon={Icon.Globe}
+        onAction={() => openInChrome(url)}
+      />
+      <Action.CopyToClipboard
+        content={url}
+        title="Copy URL"
+        shortcut={{ modifiers: ["cmd"], key: "c" }}
+      />
+      <Action.CopyToClipboard
+        content={title}
+        title="Copy Title"
+        shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
+      />
       {searchQuery && (
         <Action
           title={`Search on ${label}`}
@@ -91,28 +130,64 @@ function ItemActions({ url, title, searchQuery, engine }: { url: string; title: 
   );
 }
 
-function BookmarkItem({ entry, searchQuery, engine }: { entry: BookmarkEntry; searchQuery: string; engine: string }) {
+function BookmarkItem({
+  entry,
+  searchQuery,
+  engine,
+}: {
+  entry: BookmarkEntry;
+  searchQuery: string;
+  engine: string;
+}) {
   return (
     <List.Item
       title={truncate(entry.title)}
       icon={favicon(entry.url, Icon.Star)}
       accessories={[{ tag: { value: "Bookmark", color: Color.Blue } }]}
-      actions={<ItemActions url={entry.url} title={entry.title} searchQuery={searchQuery} engine={engine} />}
+      actions={
+        <ItemActions
+          url={entry.url}
+          title={entry.title}
+          searchQuery={searchQuery}
+          engine={engine}
+        />
+      }
     />
   );
 }
 
-function HistoryItem({ entry, searchQuery, engine }: { entry: HistoryEntry; searchQuery: string; engine: string }) {
+function HistoryItem({
+  entry,
+  searchQuery,
+  engine,
+}: {
+  entry: HistoryEntry;
+  searchQuery: string;
+  engine: string;
+}) {
   return (
     <List.Item
       title={truncate(entry.title)}
       icon={favicon(entry.url, Icon.Clock)}
       accessories={[
         { tag: { value: "History", color: Color.SecondaryText } },
-        { text: formatDate(entry.lastVisitTime), tooltip: entry.lastVisitTime.toLocaleString() },
-        { text: `${entry.visitCount} visits`, tooltip: `Visited ${entry.visitCount} times` },
+        {
+          text: formatDate(entry.lastVisitTime),
+          tooltip: entry.lastVisitTime.toLocaleString(),
+        },
+        {
+          text: `${entry.visitCount} visits`,
+          tooltip: `Visited ${entry.visitCount} times`,
+        },
       ]}
-      actions={<ItemActions url={entry.url} title={entry.title} searchQuery={searchQuery} engine={engine} />}
+      actions={
+        <ItemActions
+          url={entry.url}
+          title={entry.title}
+          searchQuery={searchQuery}
+          engine={engine}
+        />
+      }
     />
   );
 }
@@ -122,21 +197,32 @@ export default function Command() {
   const parsedMax = parseInt(prefs.maxHistoryResults, 10);
   const maxHistory = isNaN(parsedMax) ? 200 : parsedMax;
 
+  const profiles = useMemo(() => listChromeProfiles(), []);
+  const defaultProfile =
+    profiles.find((p) => p.isLastUsed)?.dirName ??
+    profiles[0]?.dirName ??
+    "Default";
+  const [profileDir, setProfileDir] = useState(defaultProfile);
+
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: history = [], isLoading: historyLoading } = useCachedPromise(
-    (limit: number) => loadChromeHistory(limit),
-    [maxHistory],
+    (dir: string, limit: number) => loadChromeHistory(dir, limit),
+    [profileDir, maxHistory],
     { keepPreviousData: true },
   );
 
-  const { data: bookmarks = [], isLoading: bookmarksLoading } = useCachedPromise(
-    () => Promise.resolve(loadChromeBookmarks()),
-    [],
-    { keepPreviousData: true },
-  );
+  const { data: bookmarks = [], isLoading: bookmarksLoading } =
+    useCachedPromise(
+      (dir: string) => Promise.resolve(loadChromeBookmarks(dir)),
+      [profileDir],
+      { keepPreviousData: true },
+    );
 
-  const bookmarksFuse = useMemo(() => new Fuse(bookmarks, FUSE_OPTIONS), [bookmarks]);
+  const bookmarksFuse = useMemo(
+    () => new Fuse(bookmarks, FUSE_OPTIONS),
+    [bookmarks],
+  );
   const historyFuse = useMemo(() => new Fuse(history, FUSE_OPTIONS), [history]);
 
   const filteredBookmarks = useMemo<BookmarkEntry[]>(() => {
@@ -152,7 +238,9 @@ export default function Command() {
   const isLoading = historyLoading || bookmarksLoading;
   const hasResults = filteredBookmarks.length > 0 || filteredHistory.length > 0;
   const fallbackUrl = getFallbackUrl(searchQuery, prefs.fallbackSearchEngine);
-  const searchEngineName = prefs.fallbackSearchEngine.charAt(0).toUpperCase() + prefs.fallbackSearchEngine.slice(1);
+  const searchEngineName =
+    prefs.fallbackSearchEngine.charAt(0).toUpperCase() +
+    prefs.fallbackSearchEngine.slice(1);
 
   return (
     <List
@@ -161,6 +249,23 @@ export default function Command() {
       onSearchTextChange={setSearchQuery}
       filtering={false}
       throttle
+      searchBarAccessory={
+        profiles.length > 1 ? (
+          <List.Dropdown
+            tooltip="Chrome Profile"
+            value={profileDir}
+            onChange={setProfileDir}
+          >
+            {profiles.map((p) => (
+              <List.Dropdown.Item
+                key={p.dirName}
+                title={p.displayName}
+                value={p.dirName}
+              />
+            ))}
+          </List.Dropdown>
+        ) : undefined
+      }
     >
       {!hasResults && searchQuery ? (
         <List.EmptyView
@@ -180,16 +285,32 @@ export default function Command() {
       ) : (
         <>
           {filteredBookmarks.length > 0 && (
-            <List.Section title="Bookmarks" subtitle={String(filteredBookmarks.length)}>
+            <List.Section
+              title="Bookmarks"
+              subtitle={String(filteredBookmarks.length)}
+            >
               {filteredBookmarks.map((entry) => (
-                <BookmarkItem key={entry.id} entry={entry} searchQuery={searchQuery} engine={prefs.fallbackSearchEngine} />
+                <BookmarkItem
+                  key={entry.id}
+                  entry={entry}
+                  searchQuery={searchQuery}
+                  engine={prefs.fallbackSearchEngine}
+                />
               ))}
             </List.Section>
           )}
           {filteredHistory.length > 0 && (
-            <List.Section title="History" subtitle={String(filteredHistory.length)}>
+            <List.Section
+              title="History"
+              subtitle={String(filteredHistory.length)}
+            >
               {filteredHistory.map((entry) => (
-                <HistoryItem key={entry.id} entry={entry} searchQuery={searchQuery} engine={prefs.fallbackSearchEngine} />
+                <HistoryItem
+                  key={entry.id}
+                  entry={entry}
+                  searchQuery={searchQuery}
+                  engine={prefs.fallbackSearchEngine}
+                />
               ))}
             </List.Section>
           )}
