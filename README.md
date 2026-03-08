@@ -2,11 +2,13 @@
 
 A [Raycast](https://raycast.com) extension that brings [RexiOry](https://github.com/blue0513/RexiOry) to your desktop — search Google Chrome history and bookmarks instantly with fuzzy matching.
 
+![demo](assets/demo.png)
+
 ## Features
 
 - **Cross-search** — history and bookmarks in a single unified list
 - **Fuzzy search** — tolerant of typos and partial matches, powered by Fuse.js
-- **Multi-word AND search** — `difit skill` finds pages containing both words
+- **Multi-word AND search** — `claude skill` finds pages containing both words
 - **Favicon display** — visually identify sites at a glance
 - **Visit metadata** — last visit date and visit count for history entries
 - **Fallback search** — when no results match, search the web in Chrome without leaving Raycast
