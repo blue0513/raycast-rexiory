@@ -16,15 +16,16 @@ npm run fix-lint # Auto-fix lint issues
 Single Raycast command (`src/index.tsx`) that cross-searches Chrome history and bookmarks using Fuse.js fuzzy search.
 
 **Data loading:**
-- `src/chrome-history.ts` — Copies Chrome's locked SQLite DB to tmpdir, then queries via `executeSQL` from `@raycast/utils`. Filters out `chrome-*` and Google search URLs. Chrome timestamp = microseconds since 1601-01-01 (Windows FILETIME).
+- `src/chrome-history.ts` — Copies Chrome's locked SQLite DB to tmpdir (skipped if source mtime is unchanged), then queries via `executeSQL` from `@raycast/utils`. Filters out `chrome-*` and Google search URLs. Chrome timestamp = microseconds since 1601-01-01 (Windows FILETIME).
 - `src/chrome-bookmarks.ts` — Reads Chrome's JSON Bookmarks file synchronously, flattens the tree recursively, deduplicates by URL.
 
 **Search flow in `index.tsx`:**
 - Both data sources loaded with `useCachedPromise` (async for history, sync-wrapped for bookmarks)
-- Fuse.js runs client-side on each keystroke via `useMemo` (threshold: 0.3, keys: `title` + `url`)
+- Fuse.js index is pre-built via `useMemo` when data loads (not on every keystroke). Multi-word queries are AND-chained using the pre-built index for the first word.
 - `<List filtering={false}>` is required — Raycast's built-in filtering must be disabled when using custom search
 - Empty query → shows first 100 results of each type; with query → full fuzzy search
 - Fallback: when no results, `List.EmptyView` with action to search configured engine in Chrome
+- Opening a URL calls `closeMainWindow()` then `popToRoot()` before `open()` — ensures Raycast returns to root on next launch
 
 **Icon:**
 - File must be at `assets/icon.png`
