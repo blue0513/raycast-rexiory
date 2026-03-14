@@ -16,7 +16,7 @@ npm run fix-lint # Auto-fix lint issues
 Single Raycast command (`src/index.tsx`) that cross-searches Chrome history and bookmarks using Fuse.js fuzzy search.
 
 **Data loading:**
-- `src/chrome-history.ts` — Copies Chrome's locked SQLite DB to tmpdir (skipped if source mtime is unchanged), then queries via `executeSQL` from `@raycast/utils`. Filters out `chrome-*` and Google search URLs. Chrome timestamp = microseconds since 1601-01-01 (Windows FILETIME).
+- `src/chrome-history.ts` — Copies Chrome's locked SQLite DB to tmpdir (skipped if source mtime is unchanged), then queries via `executeSQL` from `@raycast/utils`. Filters out `chrome-*` and Google search URLs. Chrome timestamp = microseconds since 1601-01-01 (Windows FILETIME). After loading, deduplicates by title (keeps most recently visited URL per title) to match RexiOry behavior.
 - `src/chrome-bookmarks.ts` — Reads Chrome's JSON Bookmarks file synchronously, flattens the tree recursively, deduplicates by URL.
 
 **Search flow in `index.tsx`:**
@@ -32,6 +32,6 @@ Single Raycast command (`src/index.tsx`) that cross-searches Chrome history and 
 - `package.json` must use `"icon": "icon.png"` (without `assets/` prefix — Raycast auto-prepends `assets/`)
 
 **Key constraints:**
-- Only `Default` Chrome profile is supported (no multi-profile)
+- Multi-profile supported; profile selector dropdown shown when multiple profiles exist
 - Must use `@types/react@19` (not 18) — `@raycast/api` bundles React 19 internally
 - `executeSQL` from `@raycast/utils` must be used for SQLite (not `better-sqlite3`, which fails in Raycast runtime)

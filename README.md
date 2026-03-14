@@ -65,7 +65,7 @@ When there are no results, a fallback action opens your configured search engine
 | Preference | Description | Default |
 |---|---|---|
 | Fallback Search Engine | Search engine for fallback web search | Google |
-| Max History Results | Number of history entries to load | 200 |
+| Max History Results | Number of history entries to load | 10000 |
 
 ## Notes
 
