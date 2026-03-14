@@ -46,7 +46,7 @@
       "title": "Max History Results",
       "description": "Maximum number of history entries to load",
       "required": false,
-      "default": "200"
+      "default": "10000"
     }
   ],
   "dependencies": {

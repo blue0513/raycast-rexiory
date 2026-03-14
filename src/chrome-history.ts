@@ -55,7 +55,7 @@ export async function loadChromeHistory(
      LIMIT ${limit}`,
   );
 
-  return rows.map((row) => ({
+  const entries = rows.map((row) => ({
     type: "history" as const,
     id: `history-${row.id}`,
     url: row.url,
@@ -63,4 +63,19 @@ export async function loadChromeHistory(
     visitCount: row.visit_count,
     lastVisitTime: chromeTimeToDate(row.last_visit_time),
   }));
+
+  // Deduplicate by title: keep only the most recently visited entry per title
+  const grouped = entries.reduce<Record<string, HistoryEntry[]>>((acc, entry) => {
+    const key = entry.title;
+    if (acc[key]) {
+      acc[key].push(entry);
+    } else {
+      acc[key] = [entry];
+    }
+    return acc;
+  }, {});
+
+  return Object.values(grouped).map((group) =>
+    group.sort((a, b) => b.lastVisitTime.getTime() - a.lastVisitTime.getTime())[0],
+  );
 }

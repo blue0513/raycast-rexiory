@@ -30,8 +30,9 @@ const SEARCH_URLS: Record<string, string> = {
 
 const FUSE_OPTIONS = {
   keys: ["title", "url"],
-  shouldSort: true,
+  shouldSort: false,
   threshold: 0.3,
+  ignoreLocation: false,
 };
 
 // Space-separated words are treated as AND: each word further narrows results
@@ -195,7 +196,7 @@ function HistoryItem({
 export default function Command() {
   const prefs = getPreferenceValues<Preferences>();
   const parsedMax = parseInt(prefs.maxHistoryResults, 10);
-  const maxHistory = isNaN(parsedMax) ? 200 : parsedMax;
+  const maxHistory = isNaN(parsedMax) ? 10000 : parsedMax;
 
   const profiles = useMemo(() => listChromeProfiles(), []);
   const defaultProfile =
