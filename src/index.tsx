@@ -12,7 +12,7 @@ import {
 } from "@raycast/api";
 import { useCachedPromise } from "@raycast/utils";
 import Fuse from "fuse.js";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BookmarkEntry, loadChromeBookmarks } from "./chrome-bookmarks";
 import { HistoryEntry, loadChromeHistory } from "./chrome-history";
 import { listChromeProfiles } from "./chrome-profile";
@@ -49,6 +49,39 @@ function fuseSearch<T>(fuse: Fuse<T>, items: T[], query: string): T[] {
 }
 
 const CHROME_BUNDLE_ID = "com.google.Chrome";
+const SUGGEST_DEBOUNCE_MS = 200;
+const MAX_SUGGESTIONS = 6;
+
+async function fetchSearchSuggestions(query: string): Promise<string[]> {
+  if (!query.trim()) return [];
+  const url = `https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(query)}`;
+  const res = await fetch(url);
+  const json = (await res.json()) as [string, string[]];
+  return json[1].slice(0, MAX_SUGGESTIONS);
+}
+
+function useSuggestions(query: string): string[] {
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!query.trim()) {
+      setSuggestions([]);
+      return;
+    }
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      fetchSearchSuggestions(query)
+        .then(setSuggestions)
+        .catch(() => setSuggestions([]));
+    }, SUGGEST_DEBOUNCE_MS);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [query]);
+
+  return suggestions;
+}
 
 function getFallbackUrl(query: string, engine: string): string {
   const base = SEARCH_URLS[engine] ?? SEARCH_URLS.google;
@@ -131,6 +164,39 @@ function ItemActions({
   );
 }
 
+function SuggestItem({
+  suggestion,
+  engine,
+}: {
+  suggestion: string;
+  engine: string;
+}) {
+  const url = `https://www.google.com/search?q=${encodeURIComponent(suggestion)}`;
+  const label = engine.charAt(0).toUpperCase() + engine.slice(1);
+  return (
+    <List.Item
+      title={suggestion}
+      icon={Icon.MagnifyingGlass}
+      accessories={[{ tag: { value: "Suggest", color: Color.Green } }]}
+      actions={
+        <ActionPanel>
+          <Action
+            title="Search in Chrome"
+            icon={Icon.Globe}
+            onAction={() => openInChrome(url)}
+          />
+          <Action
+            title={`Search on ${label}`}
+            icon={Icon.MagnifyingGlass}
+            shortcut={{ modifiers: ["opt"], key: "return" }}
+            onAction={() => openInChrome(getFallbackUrl(suggestion, engine))}
+          />
+        </ActionPanel>
+      }
+    />
+  );
+}
+
 function BookmarkItem({
   entry,
   searchQuery,
@@ -206,6 +272,7 @@ export default function Command() {
   const [profileDir, setProfileDir] = useState(defaultProfile);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const suggestions = useSuggestions(searchQuery);
 
   const { data: history = [], isLoading: historyLoading } = useCachedPromise(
     (dir: string, limit: number) => loadChromeHistory(dir, limit),
@@ -237,7 +304,10 @@ export default function Command() {
   }, [historyFuse, history, searchQuery]);
 
   const isLoading = historyLoading || bookmarksLoading;
-  const hasResults = filteredBookmarks.length > 0 || filteredHistory.length > 0;
+  const hasResults =
+    filteredBookmarks.length > 0 ||
+    filteredHistory.length > 0 ||
+    suggestions.length > 0;
   const fallbackUrl = getFallbackUrl(searchQuery, prefs.fallbackSearchEngine);
   const searchEngineName =
     prefs.fallbackSearchEngine.charAt(0).toUpperCase() +
@@ -285,36 +355,29 @@ export default function Command() {
         />
       ) : (
         <>
-          {filteredBookmarks.length > 0 && (
-            <List.Section
-              title="Bookmarks"
-              subtitle={String(filteredBookmarks.length)}
-            >
-              {filteredBookmarks.map((entry) => (
-                <BookmarkItem
-                  key={entry.id}
-                  entry={entry}
-                  searchQuery={searchQuery}
-                  engine={prefs.fallbackSearchEngine}
-                />
-              ))}
-            </List.Section>
-          )}
-          {filteredHistory.length > 0 && (
-            <List.Section
-              title="History"
-              subtitle={String(filteredHistory.length)}
-            >
-              {filteredHistory.map((entry) => (
-                <HistoryItem
-                  key={entry.id}
-                  entry={entry}
-                  searchQuery={searchQuery}
-                  engine={prefs.fallbackSearchEngine}
-                />
-              ))}
-            </List.Section>
-          )}
+          {suggestions.map((s) => (
+            <SuggestItem
+              key={`suggest-${s}`}
+              suggestion={s}
+              engine={prefs.fallbackSearchEngine}
+            />
+          ))}
+          {filteredBookmarks.map((entry) => (
+            <BookmarkItem
+              key={`bookmark-${entry.id}`}
+              entry={entry}
+              searchQuery={searchQuery}
+              engine={prefs.fallbackSearchEngine}
+            />
+          ))}
+          {filteredHistory.map((entry) => (
+            <HistoryItem
+              key={`history-${entry.id}`}
+              entry={entry}
+              searchQuery={searchQuery}
+              engine={prefs.fallbackSearchEngine}
+            />
+          ))}
         </>
       )}
     </List>
