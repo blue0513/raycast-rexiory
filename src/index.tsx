@@ -50,7 +50,7 @@ function fuseSearch<T>(fuse: Fuse<T>, items: T[], query: string): T[] {
 
 const CHROME_BUNDLE_ID = "com.google.Chrome";
 const SUGGEST_DEBOUNCE_MS = 200;
-const MAX_SUGGESTIONS = 6;
+const MAX_SUGGESTIONS = 3;
 
 async function fetchSearchSuggestions(query: string): Promise<string[]> {
   if (!query.trim()) return [];
@@ -60,27 +60,30 @@ async function fetchSearchSuggestions(query: string): Promise<string[]> {
   return json[1].slice(0, MAX_SUGGESTIONS);
 }
 
-function useSuggestions(query: string): string[] {
+function useSuggestions(query: string): { suggestions: string[]; isLoading: boolean } {
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!query.trim()) {
       setSuggestions([]);
+      setIsLoading(false);
       return;
     }
+    setIsLoading(true);
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       fetchSearchSuggestions(query)
-        .then(setSuggestions)
-        .catch(() => setSuggestions([]));
+        .then((results) => { setSuggestions(results); setIsLoading(false); })
+        .catch(() => { setSuggestions([]); setIsLoading(false); });
     }, SUGGEST_DEBOUNCE_MS);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [query]);
 
-  return suggestions;
+  return { suggestions, isLoading };
 }
 
 function getFallbackUrl(query: string, engine: string): string {
@@ -163,6 +166,7 @@ function ItemActions({
     </ActionPanel>
   );
 }
+
 
 function SuggestItem({
   suggestion,
@@ -272,7 +276,7 @@ export default function Command() {
   const [profileDir, setProfileDir] = useState(defaultProfile);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const suggestions = useSuggestions(searchQuery);
+  const { suggestions, isLoading: suggestionsLoading } = useSuggestions(searchQuery);
 
   const { data: history = [], isLoading: historyLoading } = useCachedPromise(
     (dir: string, limit: number) => loadChromeHistory(dir, limit),
@@ -307,7 +311,8 @@ export default function Command() {
   const hasResults =
     filteredBookmarks.length > 0 ||
     filteredHistory.length > 0 ||
-    suggestions.length > 0;
+    suggestions.length > 0 ||
+    (!!searchQuery.trim() && suggestionsLoading);
   const fallbackUrl = getFallbackUrl(searchQuery, prefs.fallbackSearchEngine);
   const searchEngineName =
     prefs.fallbackSearchEngine.charAt(0).toUpperCase() +
@@ -353,15 +358,24 @@ export default function Command() {
             </ActionPanel>
           }
         />
-      ) : (
+      ) : searchQuery.trim() ? (
         <>
-          {suggestions.map((s) => (
-            <SuggestItem
-              key={`suggest-${s}`}
-              suggestion={s}
-              engine={prefs.fallbackSearchEngine}
-            />
-          ))}
+          {suggestionsLoading
+            ? Array.from({ length: MAX_SUGGESTIONS }, (_, i) => (
+                <List.Item
+                  key={`skeleton-${i}`}
+                  title="..."
+                  icon={Icon.MagnifyingGlass}
+                  accessories={[{ tag: { value: "Suggest", color: Color.Green } }]}
+                />
+              ))
+            : suggestions.map((s) => (
+                <SuggestItem
+                  key={`suggest-${s}`}
+                  suggestion={s}
+                  engine={prefs.fallbackSearchEngine}
+                />
+              ))}
           {filteredBookmarks.map((entry) => (
             <BookmarkItem
               key={`bookmark-${entry.id}`}
@@ -373,6 +387,25 @@ export default function Command() {
           {filteredHistory.map((entry) => (
             <HistoryItem
               key={`history-${entry.id}`}
+              entry={entry}
+              searchQuery={searchQuery}
+              engine={prefs.fallbackSearchEngine}
+            />
+          ))}
+        </>
+      ) : (
+        <>
+          {filteredHistory.map((entry) => (
+            <HistoryItem
+              key={`history-${entry.id}`}
+              entry={entry}
+              searchQuery={searchQuery}
+              engine={prefs.fallbackSearchEngine}
+            />
+          ))}
+          {filteredBookmarks.map((entry) => (
+            <BookmarkItem
+              key={`bookmark-${entry.id}`}
               entry={entry}
               searchQuery={searchQuery}
               engine={prefs.fallbackSearchEngine}
