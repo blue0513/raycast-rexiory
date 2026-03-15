@@ -6,13 +6,15 @@ A [Raycast](https://raycast.com) extension that brings [RexiOry](https://github.
 
 ## Features
 
-- **Cross-search** — history and bookmarks in a single unified list
+- **Cross-search** — history, bookmarks, and search suggestions in a single unified list
+- **Search Suggest** — real-time suggestions from Google as you type
 - **Fuzzy search** — tolerant of typos and partial matches, powered by Fuse.js
 - **Multi-word AND search** — `claude skill` finds pages containing both words
 - **Favicon display** — visually identify sites at a glance
 - **Visit metadata** — last visit date and visit count for history entries
 - **Fallback search** — when no results match, search the web in Chrome without leaving Raycast
 - **Opens in Chrome** — results open in your existing Chrome window as a new tab
+- **Multi-profile** — Chrome profile selector shown automatically when multiple profiles exist
 
 ## Installation
 
@@ -44,9 +46,12 @@ The extension is now available in Raycast as **RexiOry**.
 
 Invoke **RexiOry** from Raycast and start typing.
 
-| Section | Content |
+Results appear as a flat list in this order:
+
+| Type | Content |
 |---|---|
-| **Bookmarks** | All bookmarks from Chrome's Default profile |
+| **Suggest** | Real-time search suggestions from Google |
+| **Bookmark** | All bookmarks from your Chrome profile |
 | **History** | Recently visited pages with visit date and visit count |
 
 When there are no results, a fallback action opens your configured search engine in Chrome.
@@ -72,4 +77,4 @@ When there are no results, a fallback action opens your configured search engine
 - Chrome's History file is a locked SQLite database. This extension copies it to a temporary location at query time — no data is modified.
 - Bookmarks are read from Chrome's JSON file and deduplicated by URL.
 - For the freshest history, Chrome should be running (recent visits are flushed to disk periodically).
-- Only Chrome's `Default` profile is supported.
+- When multiple Chrome profiles exist, a profile selector dropdown appears in the search bar.

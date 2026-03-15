@@ -24,6 +24,8 @@ Single Raycast command (`src/index.tsx`) that cross-searches Chrome history and 
 - Fuse.js index is pre-built via `useMemo` when data loads (not on every keystroke). Multi-word queries are AND-chained using the pre-built index for the first word.
 - `<List filtering={false}>` is required — Raycast's built-in filtering must be disabled when using custom search
 - Empty query → shows first 100 results of each type; with query → full fuzzy search
+- Results are rendered as a flat list (no sections) in fixed order: Suggest → Bookmark → History
+- Search Suggest: Google Suggest API fetched with 200ms debounce via `useSuggestions()` hook; up to 6 suggestions shown
 - Fallback: when no results, `List.EmptyView` with action to search configured engine in Chrome
 - Opening a URL calls `closeMainWindow()` then `popToRoot()` before `open()` — ensures Raycast returns to root on next launch
 
