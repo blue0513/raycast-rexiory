@@ -22,11 +22,15 @@ interface HistoryRow {
   last_visit_time: number;
 }
 
-const CHROME_HISTORY_COPY = path.join(os.tmpdir(), "raycast-chrome-history.db");
-
 // Chrome's timestamp: microseconds since Jan 1, 1601
 function chromeTimeToDate(chromeTime: number): Date {
   return new Date(chromeTime / 1000 - 11644473600000);
+}
+
+// Unique copy path per source to avoid conflicts between real and demo profiles
+function historyCopyPath(historySource: string): string {
+  const tag = historySource.replace(/[^a-zA-Z0-9]/g, "_").slice(-40);
+  return path.join(os.tmpdir(), `raycast-chrome-history-${tag}.db`);
 }
 
 export async function loadChromeHistory(
@@ -37,15 +41,16 @@ export async function loadChromeHistory(
   if (!fs.existsSync(historySource)) return [];
 
   // Copy the DB since Chrome locks it while running (skip if copy is already up-to-date)
+  const historyCopy = historyCopyPath(historySource);
   const sourceMtime = fs.statSync(historySource).mtimeMs;
-  const copyExists = fs.existsSync(CHROME_HISTORY_COPY);
-  const copyMtime = copyExists ? fs.statSync(CHROME_HISTORY_COPY).mtimeMs : 0;
+  const copyExists = fs.existsSync(historyCopy);
+  const copyMtime = copyExists ? fs.statSync(historyCopy).mtimeMs : 0;
   if (!copyExists || sourceMtime > copyMtime) {
-    fs.copyFileSync(historySource, CHROME_HISTORY_COPY);
+    fs.copyFileSync(historySource, historyCopy);
   }
 
   const rows = await executeSQL<HistoryRow>(
-    CHROME_HISTORY_COPY,
+    historyCopy,
     `SELECT id, url, title, visit_count, last_visit_time
      FROM urls
      WHERE hidden = 0
