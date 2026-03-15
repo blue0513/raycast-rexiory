@@ -1,5 +1,7 @@
 # raycast-rexiory
 
+[![CI](https://github.com/blue0513/raycast-rexiory/actions/workflows/ci.yml/badge.svg)](https://github.com/blue0513/raycast-rexiory/actions/workflows/ci.yml)
+
 A [Raycast](https://raycast.com) extension that brings [RexiOry](https://github.com/blue0513/RexiOry) to your desktop — search Google Chrome history and bookmarks instantly with fuzzy matching.
 
 ![demo](assets/demo.png)
