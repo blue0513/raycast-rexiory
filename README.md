@@ -8,7 +8,8 @@ A [Raycast](https://raycast.com) extension that brings [RexiOry](https://github.
 
 ## Features
 
-- **Cross-search** — history, bookmarks, and search suggestions in a single unified list
+- **Cross-search** — tabs, history, bookmarks, and search suggestions in a single unified list
+- **Tab switcher** — instantly switch to any open Chrome tab from Raycast
 - **Search Suggest** — real-time suggestions from Google as you type
 - **Fuzzy search** — tolerant of typos and partial matches, powered by Fuse.js
 - **Multi-word AND search** — `claude skill` finds pages containing both words
@@ -52,6 +53,7 @@ Results appear as a flat list in this order:
 
 | Type | Content |
 |---|---|
+| **Tab** | Currently open Chrome tabs |
 | **Suggest** | Real-time search suggestions from Google |
 | **Bookmark** | All bookmarks from your Chrome profile |
 | **History** | Recently visited pages with visit date and visit count |
@@ -62,7 +64,7 @@ When there are no results, a fallback action opens your configured search engine
 
 | Shortcut | Action |
 |---|---|
-| `↵` | Open in Chrome |
+| `↵` | Switch to Tab / Open in Chrome |
 | `⌘ C` | Copy URL |
 | `⌘ ⇧ C` | Copy title |
 | `⌥ ↵` | Fallback web search |
@@ -79,4 +81,5 @@ When there are no results, a fallback action opens your configured search engine
 - Chrome's History file is a locked SQLite database. This extension copies it to a temporary location at query time — no data is modified.
 - Bookmarks are read from Chrome's JSON file and deduplicated by URL.
 - For the freshest history, Chrome should be running (recent visits are flushed to disk periodically).
+- Tab listing uses AppleScript (JXA) to query Chrome. macOS may prompt for Automation permission the first time.
 - When multiple Chrome profiles exist, a profile selector dropdown appears in the search bar.

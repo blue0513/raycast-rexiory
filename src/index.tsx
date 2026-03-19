@@ -12,10 +12,11 @@ import {
 } from "@raycast/api";
 import { useCachedPromise } from "@raycast/utils";
 import Fuse from "fuse.js";
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BookmarkEntry, loadChromeBookmarks } from "./chrome-bookmarks";
 import { HistoryEntry, loadChromeHistory } from "./chrome-history";
 import { listChromeProfiles } from "./chrome-profile";
+import { loadChromeTabs, switchToTabScript, TabEntry } from "./chrome-tabs";
 
 interface Preferences {
   fallbackSearchEngine: "google" | "duckduckgo" | "bing";
@@ -60,7 +61,10 @@ async function fetchSearchSuggestions(query: string): Promise<string[]> {
   return json[1].slice(0, MAX_SUGGESTIONS);
 }
 
-function useSuggestions(query: string): { suggestions: string[]; isLoading: boolean } {
+function useSuggestions(query: string): {
+  suggestions: string[];
+  isLoading: boolean;
+} {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,8 +79,14 @@ function useSuggestions(query: string): { suggestions: string[]; isLoading: bool
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       fetchSearchSuggestions(query)
-        .then((results) => { setSuggestions(results); setIsLoading(false); })
-        .catch(() => { setSuggestions([]); setIsLoading(false); });
+        .then((results) => {
+          setSuggestions(results);
+          setIsLoading(false);
+        })
+        .catch(() => {
+          setSuggestions([]);
+          setIsLoading(false);
+        });
     }, SUGGEST_DEBOUNCE_MS);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -108,6 +118,10 @@ function truncate(text: string, max = 40): string {
   return text.length <= max ? text : text.slice(0, max) + "…";
 }
 
+function formatEngineLabel(engine: string): string {
+  return engine.charAt(0).toUpperCase() + engine.slice(1);
+}
+
 function favicon(url: string, fallback: Icon): Image.ImageLike {
   try {
     const hostname = new URL(url).hostname;
@@ -126,20 +140,29 @@ async function openInChrome(url: string) {
   open(url, CHROME_BUNDLE_ID);
 }
 
+async function switchToTab(windowIndex: number, tabIndex: number) {
+  await switchToTabScript(windowIndex, tabIndex);
+  await closeMainWindow();
+  await popToRoot();
+}
+
 function ItemActions({
   url,
   title,
   searchQuery,
   engine,
+  primaryAction,
 }: {
   url: string;
   title: string;
   searchQuery: string;
   engine: string;
+  primaryAction?: React.JSX.Element;
 }) {
-  const label = engine.charAt(0).toUpperCase() + engine.slice(1);
+  const label = formatEngineLabel(engine);
   return (
     <ActionPanel>
+      {primaryAction}
       <Action
         title="Open in Chrome"
         icon={Icon.Globe}
@@ -167,6 +190,38 @@ function ItemActions({
   );
 }
 
+function TabItem({
+  entry,
+  searchQuery,
+  engine,
+}: {
+  entry: TabEntry;
+  searchQuery: string;
+  engine: string;
+}) {
+  return (
+    <List.Item
+      title={truncate(entry.title)}
+      icon={favicon(entry.url, Icon.Window)}
+      accessories={[{ tag: { value: "Tab", color: Color.Orange } }]}
+      actions={
+        <ItemActions
+          url={entry.url}
+          title={entry.title}
+          searchQuery={searchQuery}
+          engine={engine}
+          primaryAction={
+            <Action
+              title="Switch to Tab"
+              icon={Icon.Window}
+              onAction={() => switchToTab(entry.windowIndex, entry.tabIndex)}
+            />
+          }
+        />
+      }
+    />
+  );
+}
 
 function SuggestItem({
   suggestion,
@@ -176,7 +231,7 @@ function SuggestItem({
   engine: string;
 }) {
   const url = `https://www.google.com/search?q=${encodeURIComponent(suggestion)}`;
-  const label = engine.charAt(0).toUpperCase() + engine.slice(1);
+  const label = formatEngineLabel(engine);
   return (
     <List.Item
       title={suggestion}
@@ -276,7 +331,13 @@ export default function Command() {
   const [profileDir, setProfileDir] = useState(defaultProfile);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const { suggestions, isLoading: suggestionsLoading } = useSuggestions(searchQuery);
+  const { suggestions, isLoading: suggestionsLoading } =
+    useSuggestions(searchQuery);
+
+  const { data: tabs = [], isLoading: tabsLoading } = useCachedPromise(
+    () => loadChromeTabs(),
+    [],
+  );
 
   const { data: history = [], isLoading: historyLoading } = useCachedPromise(
     (dir: string, limit: number) => loadChromeHistory(dir, limit),
@@ -290,6 +351,13 @@ export default function Command() {
       [profileDir],
       { keepPreviousData: true },
     );
+
+  const tabsFuse = useMemo(() => new Fuse(tabs, FUSE_OPTIONS), [tabs]);
+
+  const filteredTabs = useMemo<TabEntry[]>(() => {
+    if (!searchQuery.trim()) return tabs.slice(0, 100);
+    return fuseSearch(tabsFuse, tabs, searchQuery);
+  }, [tabsFuse, tabs, searchQuery]);
 
   const bookmarksFuse = useMemo(
     () => new Fuse(bookmarks, FUSE_OPTIONS),
@@ -307,16 +375,15 @@ export default function Command() {
     return fuseSearch(historyFuse, history, searchQuery);
   }, [historyFuse, history, searchQuery]);
 
-  const isLoading = historyLoading || bookmarksLoading;
+  const isLoading = historyLoading || bookmarksLoading || tabsLoading;
   const hasResults =
+    filteredTabs.length > 0 ||
     filteredBookmarks.length > 0 ||
     filteredHistory.length > 0 ||
     suggestions.length > 0 ||
     (!!searchQuery.trim() && suggestionsLoading);
   const fallbackUrl = getFallbackUrl(searchQuery, prefs.fallbackSearchEngine);
-  const searchEngineName =
-    prefs.fallbackSearchEngine.charAt(0).toUpperCase() +
-    prefs.fallbackSearchEngine.slice(1);
+  const searchEngineName = formatEngineLabel(prefs.fallbackSearchEngine);
 
   return (
     <List
@@ -360,13 +427,23 @@ export default function Command() {
         />
       ) : searchQuery.trim() ? (
         <>
+          {filteredTabs.map((entry) => (
+            <TabItem
+              key={`tab-${entry.id}`}
+              entry={entry}
+              searchQuery={searchQuery}
+              engine={prefs.fallbackSearchEngine}
+            />
+          ))}
           {suggestionsLoading
             ? Array.from({ length: MAX_SUGGESTIONS }, (_, i) => (
                 <List.Item
                   key={`skeleton-${i}`}
                   title="..."
                   icon={Icon.MagnifyingGlass}
-                  accessories={[{ tag: { value: "Suggest", color: Color.Green } }]}
+                  accessories={[
+                    { tag: { value: "Suggest", color: Color.Green } },
+                  ]}
                 />
               ))
             : suggestions.map((s) => (
@@ -395,6 +472,14 @@ export default function Command() {
         </>
       ) : (
         <>
+          {filteredTabs.map((entry) => (
+            <TabItem
+              key={`tab-${entry.id}`}
+              entry={entry}
+              searchQuery={searchQuery}
+              engine={prefs.fallbackSearchEngine}
+            />
+          ))}
           {filteredHistory.map((entry) => (
             <HistoryItem
               key={`history-${entry.id}`}
