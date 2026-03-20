@@ -59,6 +59,24 @@ export async function loadChromeTabs(): Promise<TabEntry[]> {
   }));
 }
 
+export async function closeTabScript(
+  windowIndex: number,
+  tabIndex: number,
+): Promise<void> {
+  const result = spawnSync(
+    "osascript",
+    [
+      "-e",
+      `tell application "Google Chrome"
+  close tab ${tabIndex} of window ${windowIndex}
+end tell`,
+    ],
+    { encoding: "utf8" },
+  );
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(result.stderr || `osascript exited with ${result.status}`);
+}
+
 export async function switchToTabScript(
   windowIndex: number,
   tabIndex: number,

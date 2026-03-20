@@ -1,6 +1,7 @@
 import {
   Action,
   ActionPanel,
+  Clipboard,
   closeMainWindow,
   Color,
   getPreferenceValues,
@@ -9,14 +10,16 @@ import {
   List,
   open,
   popToRoot,
+  showToast,
+  Toast,
 } from "@raycast/api";
 import { useCachedPromise } from "@raycast/utils";
 import Fuse from "fuse.js";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookmarkEntry, loadChromeBookmarks } from "./chrome-bookmarks";
 import { HistoryEntry, loadChromeHistory } from "./chrome-history";
 import { listChromeProfiles } from "./chrome-profile";
-import { loadChromeTabs, switchToTabScript, TabEntry } from "./chrome-tabs";
+import { closeTabScript, loadChromeTabs, switchToTabScript, TabEntry } from "./chrome-tabs";
 
 interface Preferences {
   fallbackSearchEngine: "google" | "duckduckgo" | "bing";
@@ -146,18 +149,29 @@ async function switchToTab(windowIndex: number, tabIndex: number) {
   await popToRoot();
 }
 
+async function closeTab(windowIndex: number, tabIndex: number, title: string) {
+  try {
+    await closeTabScript(windowIndex, tabIndex);
+    await showToast({ style: Toast.Style.Success, title: "Tab closed", message: title });
+  } catch (e) {
+    await showToast({ style: Toast.Style.Failure, title: "Failed to close tab", message: String(e) });
+  }
+}
+
 function ItemActions({
   url,
   title,
   searchQuery,
   engine,
   primaryAction,
+  destructiveAction,
 }: {
   url: string;
   title: string;
   searchQuery: string;
   engine: string;
   primaryAction?: React.JSX.Element;
+  destructiveAction?: React.JSX.Element;
 }) {
   const label = formatEngineLabel(engine);
   return (
@@ -168,15 +182,32 @@ function ItemActions({
         icon={Icon.Globe}
         onAction={() => openInChrome(url)}
       />
-      <Action.CopyToClipboard
-        content={url}
+      <Action
         title="Copy URL"
+        icon={Icon.Clipboard}
         shortcut={{ modifiers: ["cmd"], key: "c" }}
+        onAction={async () => {
+          await Clipboard.copy(url);
+          await showToast({ style: Toast.Style.Success, title: "Copied URL" });
+        }}
       />
-      <Action.CopyToClipboard
-        content={title}
+      <Action
         title="Copy Title"
+        icon={Icon.Clipboard}
         shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
+        onAction={async () => {
+          await Clipboard.copy(title);
+          await showToast({ style: Toast.Style.Success, title: "Copied Title" });
+        }}
+      />
+      <Action
+        title="Copy Markdown Link"
+        icon={Icon.Clipboard}
+        shortcut={{ modifiers: ["cmd", "opt"], key: "c" }}
+        onAction={async () => {
+          await Clipboard.copy(`[${title}](${url})`);
+          await showToast({ style: Toast.Style.Success, title: "Copied Markdown Link" });
+        }}
       />
       {searchQuery && (
         <Action
@@ -186,6 +217,7 @@ function ItemActions({
           onAction={() => openInChrome(getFallbackUrl(searchQuery, engine))}
         />
       )}
+      {destructiveAction}
     </ActionPanel>
   );
 }
@@ -194,10 +226,12 @@ function TabItem({
   entry,
   searchQuery,
   engine,
+  onClose,
 }: {
   entry: TabEntry;
   searchQuery: string;
   engine: string;
+  onClose: (id: string) => void;
 }) {
   return (
     <List.Item
@@ -215,6 +249,18 @@ function TabItem({
               title="Switch to Tab"
               icon={Icon.Window}
               onAction={() => switchToTab(entry.windowIndex, entry.tabIndex)}
+            />
+          }
+          destructiveAction={
+            <Action
+              title="Close Tab"
+              icon={Icon.XMarkCircle}
+              style={Action.Style.Destructive}
+              shortcut={{ modifiers: ["ctrl"], key: "k" }}
+              onAction={async () => {
+                await closeTab(entry.windowIndex, entry.tabIndex, entry.title);
+                onClose(entry.id);
+              }}
             />
           }
         />
@@ -329,6 +375,11 @@ export default function Command() {
     profiles[0]?.dirName ??
     "Default";
   const [profileDir, setProfileDir] = useState(defaultProfile);
+  const [closedTabIds, setClosedTabIds] = useState<Set<string>>(new Set());
+  const handleTabClose = useCallback(
+    (id: string) => setClosedTabIds((prev) => new Set(prev).add(id)),
+    [],
+  );
 
   const [searchQuery, setSearchQuery] = useState("");
   const { suggestions, isLoading: suggestionsLoading } =
@@ -355,9 +406,10 @@ export default function Command() {
   const tabsFuse = useMemo(() => new Fuse(tabs, FUSE_OPTIONS), [tabs]);
 
   const filteredTabs = useMemo<TabEntry[]>(() => {
-    if (!searchQuery.trim()) return tabs.slice(0, 100);
-    return fuseSearch(tabsFuse, tabs, searchQuery);
-  }, [tabsFuse, tabs, searchQuery]);
+    const visible = tabs.filter((t) => !closedTabIds.has(t.id));
+    if (!searchQuery.trim()) return visible.slice(0, 100);
+    return fuseSearch(tabsFuse, visible, searchQuery);
+  }, [tabsFuse, tabs, searchQuery, closedTabIds]);
 
   const bookmarksFuse = useMemo(
     () => new Fuse(bookmarks, FUSE_OPTIONS),
@@ -433,6 +485,7 @@ export default function Command() {
               entry={entry}
               searchQuery={searchQuery}
               engine={prefs.fallbackSearchEngine}
+              onClose={handleTabClose}
             />
           ))}
           {suggestionsLoading
@@ -478,6 +531,7 @@ export default function Command() {
               entry={entry}
               searchQuery={searchQuery}
               engine={prefs.fallbackSearchEngine}
+              onClose={handleTabClose}
             />
           ))}
           {filteredHistory.map((entry) => (
